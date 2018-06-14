@@ -1,7 +1,7 @@
 #!/bin/bash
 # Escalate priveleges
 if [ $(id -un) != 'root' ]; then
-    exec sudo $0 $*
+    exec sudo -E $0 $*
 fi
 
 # Cleanup function
@@ -53,8 +53,6 @@ else
         NNUM=$(($NNUM + 1))
     done
 
-    echo $NNUM
-
     # Create network namespace
     ip netns add $NETNS
     ip netns exec $NETNS ip link set dev lo up
@@ -74,16 +72,11 @@ else
     ip netns exec $NETNS ip route add default via 10.1.$NNUM.2 dev $VETH1
 
     # Enable routing
-    echo 1 | tee /proc/sys/net/ipv4/ip_forward > /dev/null
+    echo 1 > /proc/sys/net/ipv4/ip_forward
 
-    # Create iptables rule if it doesn't exist already
-    iptables -t nat -C POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
-        -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
-
-    if [ $? != 0 ]; then
-        iptables -t nat -A POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
-            -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
-    fi
+    # Create nat rule
+    iptables -t nat -A POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
+        -m comment --comment "for $NETNS" -j MASQUERADE
 fi
 
 # Use sudo to enter the namespace and again to drop priveleges
