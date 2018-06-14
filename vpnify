@@ -1,38 +1,51 @@
 #!/bin/bash
 
-NETNS=$(ip netns show | cut -d' ' -f1 | grep '^vpnify$')
-GW=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
+NETNS=$(basename $0)
+EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$")
+INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
 
-if [ "$NETNS" == "" ]; then
-    # setup netns
-    NETNS="vpnify"
+VETH0="${NETNS}_veth0"
+VETH1="${NETNS}_veth1"
 
+NNUM=$(echo $NETNS | cksum | cut -d' ' -f1)
+NNUM=$(($NNUM % 256))
+
+if [ "$EXISTING" == "" ]; then
+    # create netns
     sudo ip netns add $NETNS
     sudo ip netns exec $NETNS ip link set dev lo up   
     
-    sudo ip link add veth0 type veth peer name veth1
-    sudo ip link set veth1 netns $NETNS
+    # create veth pair
+    sudo ip link add $VETH0 type veth peer name $VETH1
+    sudo ip link set $VETH1 netns $NETNS
 
-    sudo ip netns exec $NETNS ip addr add 10.1.1.1/24 dev veth1
-    sudo ip addr add 10.1.1.2/24 dev veth0
+    # setup the pair
+    sudo ip netns exec $NETNS ip addr add 10.1.$NNUM.1/24 dev $VETH1
+    sudo ip addr add 10.1.$NNUM.2/24 dev $VETH0
+    sudo ip netns exec $NETNS ip link set $VETH1 up
+    sudo ip link set $VETH0 up
 
-    sudo ip netns exec $NETNS ip link set veth1 up
-    sudo ip link set veth0 up
+    # add default route inside ns
+    sudo ip netns exec $NETNS ip route add default via 10.1.$NNUM.2 dev $VETH1
 
-    sudo ip netns exec $NETNS ip route add default via 10.1.1.2 dev veth1 
-
+    # enable routing
     echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward > /dev/null
-    sudo iptables -t nat -C POSTROUTING -s 10.1.1.0/24 -o $GW -j MASQUERADE 2> /dev/null
+    
+    # create iptables rule if it doesn't exist already
+    sudo iptables -t nat -C POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE -j MASQUERADE 2> /dev/null
     
     if [ $? != 0 ]; then
-        sudo iptables -t nat -A POSTROUTING -s 10.1.1.0/24 -o $GW -j MASQUERADE
+        sudo iptables -t nat -A POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE -j MASQUERADE
     fi
 fi
 
 sudo -E ip netns exec $NETNS sudo -u $USER $*
 
+# find all pids using this ns
 PIDS=$(sudo find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" | cut -d/ -f5)
 
 if [ "$PIDS" == "" ]; then
+    # remove ns and drop iptables rule
     sudo ip netns del $NETNS
+    sudo iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE -j MASQUERADE 2> /dev/null
 fi
