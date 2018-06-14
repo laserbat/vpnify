@@ -1,25 +1,8 @@
-#!/bin/bash 
+#!/bin/bash
 # Escalate priveleges
 if [ $(id -un) != 'root' ]; then
     exec sudo $0 $*
 fi
-
-# Name of network namespace
-NETNS=$(basename $0)
-
-# Check if this namespace exists already
-EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$")
-
-# Find default interface
-INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
-# Run sudo once
-
-# Names of veth interfaces
-VETH0="${NETNS}_veth0"
-VETH1="${NETNS}_veth1"
-
-# Arguments
-ARGS=$*
 
 # Cleanup function
 clean() {
@@ -38,13 +21,29 @@ clean() {
 # Run cleanup on exit
 trap 'clean;' 0
 
+# Name of network namespace
+NETNS=$(basename $0)
+
+# Check if this namespace exists already
+EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$")
+
+# Find default interface
+INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
+
+# Names of veth interfaces
+VETH0="${NETNS}_veth0"
+VETH1="${NETNS}_veth1"
+
+# Arguments
+ARGS=$*
+
 # Save firewall rules
 IPTABLES=$(iptables-save)
 
 # Find an unused subnet starting from 10.1.0.0/24 to 10.1.255.0/24
 NNUM=0
 while [ $NNUM -le 255 ]; do
-    COUNT=$(echo "$IPTABLES" | grep -c "10\.1\.$NNUM\.0/24")
+    COUNT=$(grep -c "10\.1\.$NNUM\.0/24" <<< $IPTABLES)
 
     if [ $COUNT == 0 ]; then
         break
@@ -86,5 +85,5 @@ if [ "$EXISTING" == "" ]; then
     fi
 fi
 
-# Use to enter the namespace and again to drop priveleges
+# Use sudo to enter the namespace and again to drop priveleges
 ip netns exec $NETNS sudo -Eu $USER $ARGS
