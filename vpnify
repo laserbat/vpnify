@@ -26,6 +26,7 @@ if [ "$EXISTING" == "" ]; then
     sudo ip netns exec $NETNS ip link set dev lo up   
     
     # create veth pair
+    sudo ip link delete $VETH0 2> /dev/null
     sudo ip link add $VETH0 type veth peer name $VETH1
     sudo ip link set $VETH1 netns $NETNS
 
