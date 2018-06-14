@@ -7,8 +7,18 @@ INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
 VETH0="${NETNS}_veth0"
 VETH1="${NETNS}_veth1"
 
-NNUM=$(echo $NETNS | cksum | cut -d' ' -f1)
-NNUM=$(($NNUM % 256))
+IPTABLES=$(sudo iptables-save)
+
+NNUM=0
+while [ $NNUM -le 255 ]; do
+    COUNT=$(echo "$IPTABLES" | grep -c "10\.1\.$NNUM\.0/24")
+    
+    if [ $COUNT == 0 ]; then
+        break
+    fi
+    
+    NNUM=$(($NNUM + 1))
+done
 
 if [ "$EXISTING" == "" ]; then
     # create netns
