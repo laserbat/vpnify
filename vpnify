@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/bin/bash 
+# Escalate priveleges
+if [ $(id -un) != 'root' ]; then
+    exec sudo $0 $*
+fi
 
 # Name of network namespace
 NETNS=$(basename $0)
@@ -8,12 +12,16 @@ EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$")
 
 # Find default interface
 INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
+# Run sudo once
 
 # Names of veth interfaces
 VETH0="${NETNS}_veth0"
 VETH1="${NETNS}_veth1"
 
-IPTABLES=$(sudo iptables-save)
+# Arguments
+ARGS=$*
+
+IPTABLES=$(iptables-save)
 
 # Find an unused subnet starting from 10.1.0.0/24 to 10.1.255.0/24
 NNUM=0
@@ -27,48 +35,48 @@ while [ $NNUM -le 255 ]; do
     NNUM=$(($NNUM + 1))
 done
 
+
 if [ "$EXISTING" == "" ]; then
     # Create network namespace
-    sudo ip netns add $NETNS
-    sudo ip netns exec $NETNS ip link set dev lo up
+    ip netns add $NETNS
+    ip netns exec $NETNS ip link set dev lo up
 
     # Create veth pair
-    sudo ip link delete $VETH0 2> /dev/null
-    sudo ip link add $VETH0 type veth peer name $VETH1
-    sudo ip link set $VETH1 netns $NETNS
+    ip link delete $VETH0 2> /dev/null
+    ip link add $VETH0 type veth peer name $VETH1
+    ip link set $VETH1 netns $NETNS
 
     # Setup the pair
-    sudo ip netns exec $NETNS ip addr add 10.1.$NNUM.1/24 dev $VETH1
-    sudo ip addr add 10.1.$NNUM.2/24 dev $VETH0
-    sudo ip netns exec $NETNS ip link set $VETH1 up
-    sudo ip link set $VETH0 up
+    ip netns exec $NETNS ip addr add 10.1.$NNUM.1/24 dev $VETH1
+    ip addr add 10.1.$NNUM.2/24 dev $VETH0
+    ip netns exec $NETNS ip link set $VETH1 up
+    ip link set $VETH0 up
 
     # Add default route inside NS
-    sudo ip netns exec $NETNS ip route add default via 10.1.$NNUM.2 dev $VETH1
+    ip netns exec $NETNS ip route add default via 10.1.$NNUM.2 dev $VETH1
 
     # Enable routing
-    echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward > /dev/null
+    echo 1 | tee /proc/sys/net/ipv4/ip_forward > /dev/null
 
     # Create iptables rule if it doesn't exist already
-    sudo iptables -t nat -C POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
+    iptables -t nat -C POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
         -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
 
-
     if [ $? != 0 ]; then
-        sudo iptables -t nat -A POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
+        iptables -t nat -A POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
     fi
 fi
 
-# Use sudo to enter the namespace and sudo again to drop priveleges
-sudo -E ip netns exec $NETNS sudo -Eu $USER $*
+# Use to enter the namespace and again to drop priveleges
+ip netns exec $NETNS sudo -Eu $USER $ARGS
 
 # Find all pids using this NS
-PIDS=$(sudo find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" 2> /dev/null)
+PIDS=$(find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" 2> /dev/null)
 
 if [ "$PIDS" == "" ]; then
     # Remove NS and drop iptables rule
-    sudo ip netns del $NETNS
-    sudo iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
+    ip netns del $NETNS
+    iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
         -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
 fi
