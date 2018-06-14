@@ -32,8 +32,3 @@ Now you can do this:
     vpnify2 sudo openvpn --config vpn2.conf
 
 Programs run with vpnify2 will use different connection from programs run with vpnify.
-
-Limitations
---
-
-Doesn't seem to work well with background processes.
