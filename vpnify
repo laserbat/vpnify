@@ -31,7 +31,7 @@ fi
 
 sudo -E ip netns exec $NETNS sudo -u $USER $*
 
-PIDS=$(ip netns pids $NETNS)
+PIDS=$(sudo find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" | cut -d/ -f5)
 
 if [ "$PIDS" == "" ]; then
     sudo ip netns del $NETNS
