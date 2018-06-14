@@ -16,15 +16,15 @@ That's all. No configuration needed. It creates network namespace and configures
 Installation
 --
 
-Just create a symlink to /usr/local/bin/
+Just copy to /usr/local/bin/
 
-    ln -s $HOME/vpnify/vpnify /usr/local/bin/vpnify
+    sudo cp $HOME/vpnify/vpnify /usr/local/bin/vpnify
 
 Multiple VPN's
 --
 To create two or more distinct VPN connections, you just need to create a new symlink.
 
-    ln -s $HOME/vpnify/vpnify $HOME/vpnify/vpnify2
+    ln -s /usr/local/bin/vpnify $HOME/vpnify/vpnify2
 
 Now you can do this:
 

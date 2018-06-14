@@ -19,19 +19,19 @@ IPTABLES=$(sudo iptables-save)
 NNUM=0
 while [ $NNUM -le 255 ]; do
     COUNT=$(echo "$IPTABLES" | grep -c "10\.1\.$NNUM\.0/24")
-    
+
     if [ $COUNT == 0 ]; then
         break
     fi
-    
+
     NNUM=$(($NNUM + 1))
 done
 
 if [ "$EXISTING" == "" ]; then
     # Create network namespace
     sudo ip netns add $NETNS
-    sudo ip netns exec $NETNS ip link set dev lo up   
-    
+    sudo ip netns exec $NETNS ip link set dev lo up
+
     # Create veth pair
     sudo ip link delete $VETH0 2> /dev/null
     sudo ip link add $VETH0 type veth peer name $VETH1
@@ -48,10 +48,10 @@ if [ "$EXISTING" == "" ]; then
 
     # Enable routing
     echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward > /dev/null
-    
+
     # Create iptables rule if it doesn't exist already
     sudo iptables -t nat -C POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE -j MASQUERADE 2> /dev/null
-    
+
     if [ $? != 0 ]; then
         sudo iptables -t nat -A POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE -j MASQUERADE
     fi
