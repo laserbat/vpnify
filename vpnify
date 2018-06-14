@@ -58,7 +58,7 @@ if [ "$EXISTING" == "" ]; then
 fi
 
 # Use sudo to enter the namespace and sudo again to drop priveleges
-sudo -E ip netns exec $NETNS sudo -u $USER $*
+sudo -E ip netns exec $NETNS sudo -Eu $USER $*
 
 # Find all pids using this NS
 PIDS=$(sudo find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" | cut -d/ -f5 2> /dev/null)

@@ -24,7 +24,7 @@ Multiple VPN's
 --
 To create two or more distinct VPN connections, you just need to create a new symlink.
 
-    ln -s /usr/local/bin/vpnify $HOME/vpnify/vpnify2
+    ln -s /usr/local/bin/vpnify /usr/local/bin/vpnify2
 
 Now you can do this:
 
