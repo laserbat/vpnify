@@ -21,6 +21,24 @@ VETH1="${NETNS}_veth1"
 # Arguments
 ARGS=$*
 
+# Cleanup function
+clean() {
+    # Find all pids using this NS
+    PIDS=$(find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" 2> /dev/null)
+
+
+    if [ "$PIDS" == "" ]; then
+        # Remove NS and drop iptables rule
+        ip netns del $NETNS
+        iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
+            -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
+    fi
+}
+
+# Run cleanup on exit
+trap 'clean;' 0
+
+# Save firewall rules
 IPTABLES=$(iptables-save)
 
 # Find an unused subnet starting from 10.1.0.0/24 to 10.1.255.0/24
@@ -70,13 +88,3 @@ fi
 
 # Use to enter the namespace and again to drop priveleges
 ip netns exec $NETNS sudo -Eu $USER $ARGS
-
-# Find all pids using this NS
-PIDS=$(find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" 2> /dev/null)
-
-if [ "$PIDS" == "" ]; then
-    # Remove NS and drop iptables rule
-    ip netns del $NETNS
-    iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
-        -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
-fi
