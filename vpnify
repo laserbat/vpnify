@@ -79,5 +79,5 @@ else
         -m comment --comment "for $NETNS" -j MASQUERADE
 fi
 
-# Use sudo to enter the namespace and again to drop priveleges
-ip netns exec $NETNS sudo -Eu $USER $*
+# Use sudo to drop priveleges inside the namespace
+ip netns exec $NETNS sudo -Eu $SUDO_USER $*
