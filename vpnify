@@ -16,6 +16,11 @@ clean() {
         iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
     fi
+    
+    # Execute custom user (post) hooks
+    for hook in /etc/vpnify/$NETNS.post.d/*; do
+        [ -x "$hook" ] && source $hook
+    done
 }
 
 # Run cleanup on exit
@@ -79,5 +84,10 @@ else
         -m comment --comment "for $NETNS" -j MASQUERADE
 fi
 
+# Execute custom user hooks
+for hook in /etc/vpnify/$NETNS.pre.d/*; do
+    [ -x "$hook" ] && source $hook
+done
+
 # Use sudo to drop priveleges inside the namespace
-ip netns exec $NETNS sudo -Eu $SUDO_USER $*
+$PRE_COMMAND ip netns exec $NETNS sudo -Eu $SUDO_USER $*
