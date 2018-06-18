@@ -63,7 +63,7 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     
 
     if [ ! -e "/run/mntns/$NETNS" ]; then
-        unshare -m sleep 10 &
+        unshare -m sleep 0.1 &
         PID=$!
         
         mkdir -p /run/mntns
