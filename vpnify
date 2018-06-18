@@ -127,4 +127,4 @@ for hook in $CUSTOM_PATH/pre.d/*; do
 done
 
 # Use sudo to drop priveleges inside the namespace
-nsenter $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- $*
+nsenter -t $$ -w $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- $*
