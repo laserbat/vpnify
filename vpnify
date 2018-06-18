@@ -16,16 +16,16 @@ clean() {
         iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
     fi
-   
+
     # Remove mount namespace if it was created
-    if [ -e "/tmp/$NETNS" ]; then
-        umount /tmp/$NETNS
-        rm /tmp/$NETNS
+    if [ -e "/run/mntn/$NETNS" ]; then
+        umount /run/mntns/$NETNS
+        rm /run/mntns/$NETNS
     fi
 
     # Execute custom user (post) hooks
-    for hook in /etc/vpnify/$NETNS.post.d/*; do
-        [ -x "$hook" ] && source $hook
+    for hook in $CUSTOM_PATH/post.d/*; do
+        [ -x "$hook" ] && "$hook"
     done
 }
 
@@ -44,19 +44,27 @@ IPTABLES=$(iptables-save)
 # Find default interface
 INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
 
+# Customization path
+if [ $NETNS == "vpnify" ]; then
+    CUSTOM_PATH="/etc/vpnify"
+else
+    CUSTOM_PATH="/etc/vpnify/$NETNS"
+fi
+
 # Create mount namespace for /etc/resolv.conf and /etc/hosts if needed
-if [ ! -e "/tmp/$NETNS" ] && ( [ -e "/etc/vpnify/$NETNS/resolv.conf" ] || \
-    [ -e "/etc/vpnify/$NETNS/hosts" ] ) ; then
+if [ ! -e "/run/mntns/$NETNS" ] && ( [ -e "$CUSTOM_PATH/resolv.conf" ] || \
+    [ -e "$CUSTOM_PATH/hosts" ] ) ; then
     unshare -m sleep 10 &
-	PID=$!
-    
-	touch /tmp/$NETNS
-	mount --bind /proc/$PID/task/$PID/ns/mnt /tmp/$NETNS
+    PID=$!
 
-    NSENTER="nsenter -m/tmp/$NETNS"
+    mkdir -p /run/mntns
+    touch /run/mntns/$NETNS
+    mount --bind /proc/$PID/task/$PID/ns/mnt /run/mntns/$NETNS
 
-	$NSENTER mount --bind /etc/vpnify/$NETNS/hosts /etc/hosts 2> /dev/null
-	$NSENTER mount --bind /etc/vpnify/$NETNS/resolv.conf /etc/resolv.conf 2> /dev/null
+    NSENTER="nsenter -m/run/mntns/$NETNS"
+
+    $NSENTER mount --bind $CUSTOM_PATH/hosts /etc/hosts 2> /dev/null
+    $NSENTER mount --bind $CUSTOM_PATH/resolv.conf /etc/resolv.conf 2> /dev/null
 fi
 
 if [ "$EXISTING" != "" ]; then
@@ -106,8 +114,8 @@ else
 fi
 
 # Execute custom user hooks
-for hook in /etc/vpnify/$NETNS.pre.d/*; do
-    [ -x "$hook" ] && source $hook
+for hook in $CUSTOM_PATH/pre.d/*; do
+    [ -x "$hook" ] && "$hook"
 done
 
 # Use sudo to drop priveleges inside the namespace
