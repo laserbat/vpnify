@@ -52,19 +52,20 @@ else
 fi
 
 # Create mount namespace for /etc/resolv.conf and /etc/hosts if needed
-if [ ! -e "/run/mntns/$NETNS" ] && ( [ -e "$CUSTOM_PATH/resolv.conf" ] || \
-    [ -e "$CUSTOM_PATH/hosts" ] ) ; then
-    unshare -m sleep 10 &
-    PID=$!
-
-    mkdir -p /run/mntns
-    touch /run/mntns/$NETNS
-    mount --bind /proc/$PID/task/$PID/ns/mnt /run/mntns/$NETNS
-
+if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     NSENTER="nsenter -m/run/mntns/$NETNS"
+    
+    if [ ! -e "/run/mntns/$NETNS" ]; then
+        unshare -m sleep 10 &
+        PID=$!
 
-    $NSENTER mount --bind $CUSTOM_PATH/hosts /etc/hosts 2> /dev/null
-    $NSENTER mount --bind $CUSTOM_PATH/resolv.conf /etc/resolv.conf 2> /dev/null
+        mkdir -p /run/mntns
+        touch /run/mntns/$NETNS
+        mount --bind /proc/$PID/task/$PID/ns/mnt /run/mntns/$NETNS
+
+        $NSENTER mount --bind $CUSTOM_PATH/hosts /etc/hosts 2> /dev/null
+        $NSENTER mount --bind $CUSTOM_PATH/resolv.conf /etc/resolv.conf 2> /dev/null
+    fi
 fi
 
 if [ "$EXISTING" != "" ]; then
