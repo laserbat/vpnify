@@ -1,14 +1,13 @@
 #!/bin/bash
 # Escalate priveleges
 if [ $(id -un) != 'root' ]; then
-    exec sudo -E $0 $*
+    exec sudo -E -- $0 $*
 fi
 
 # Cleanup function
 clean() {
     # Find all pids using this NS
     PIDS=$(find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" 2> /dev/null)
-
 
     if [ "$PIDS" == "" ]; then
         # Remove NS and drop iptables rule
@@ -17,10 +16,14 @@ clean() {
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
     fi
 
-    # Remove mount namespace if it was created
-    if [ -e "/run/mntns/$NETNS" ]; then
-        umount /run/mntns/$NETNS
-        rm /run/mntns/$NETNS
+    PIDS=$(find -L /proc/[1-9]*/task/*/ns/mnt -samefile /run/mntns/"$NETNS" 2> /dev/null)
+
+    if [ "$PIDS" == "" ]; then
+        # Remove mount namespace if it was created
+        if [ -e "/run/mntns/$NETNS" ]; then
+            umount /run/mntns/$NETNS
+            rm /run/mntns/$NETNS
+        fi
     fi
 
     # Execute custom user (post) hooks
@@ -124,4 +127,4 @@ for hook in $CUSTOM_PATH/pre.d/*; do
 done
 
 # Use sudo to drop priveleges inside the namespace
-nsenter $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER $*
+nsenter $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- $*
