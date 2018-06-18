@@ -16,7 +16,13 @@ clean() {
         iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
     fi
-    
+   
+    # Remove mount namespace if it was created
+    if [ -e "/tmp/$NETNS" ]; then
+        umount /tmp/$NETNS
+        rm /tmp/$NETNS
+    fi
+
     # Execute custom user (post) hooks
     for hook in /etc/vpnify/$NETNS.post.d/*; do
         [ -x "$hook" ] && source $hook
@@ -37,6 +43,21 @@ IPTABLES=$(iptables-save)
 
 # Find default interface
 INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
+
+# Create mount namespace for /etc/resolv.conf and /etc/hosts if needed
+if [ ! -e "/tmp/$NETNS" ] && ( [ -e "/etc/vpnify/$NETNS/resolv.conf" ] || \
+    [ -e "/etc/vpnify/$NETNS/hosts" ] ) ; then
+    unshare -m sleep 10 &
+	PID=$!
+    
+	touch /tmp/$NETNS
+	mount --bind /proc/$PID/task/$PID/ns/mnt /tmp/$NETNS
+
+    NSENTER="nsenter -m/tmp/$NETNS"
+
+	$NSENTER mount --bind /etc/vpnify/$NETNS/hosts /etc/hosts 2> /dev/null
+	$NSENTER mount --bind /etc/vpnify/$NETNS/resolv.conf /etc/resolv.conf 2> /dev/null
+fi
 
 if [ "$EXISTING" != "" ]; then
     # Get the existing subnet number
@@ -90,4 +111,4 @@ for hook in /etc/vpnify/$NETNS.pre.d/*; do
 done
 
 # Use sudo to drop priveleges inside the namespace
-$PRE_COMMAND ip netns exec $NETNS sudo -Eu $SUDO_USER $*
+$NSENTER ip netns exec $NETNS sudo -Eu $SUDO_USER $*
