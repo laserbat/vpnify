@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 # Escalate priveleges
 if [ $(id -un) != 'root' ]; then
     exec sudo -E -- $0 $*
@@ -40,7 +42,7 @@ trap 'clean;' 0
 NETNS=$(basename $0)
 
 # Check if this namespace exists already
-EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$")
+EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$"; true)
 
 # Save firewall rules
 IPTABLES=$(iptables-save)
@@ -118,7 +120,7 @@ else
     # Find an unused subnet starting from 10.1.0.0/24 to 10.1.255.0/24
     NNUM=0
     while [ $NNUM -le 255 ]; do
-        COUNT=$(grep -c "10\.1\.$NNUM\.0/24" <<< $IPTABLES)
+        COUNT=$(grep -c "10\.1\.$NNUM\.0/24" <<< $IPTABLES; true)
 
         if [ $COUNT == 0 ]; then
             break
@@ -135,7 +137,7 @@ else
     ip netns exec $NETNS ip link set dev lo up
 
     # Create veth pair
-    ip link delete $VETH0 2> /dev/null
+    ip link delete $VETH0 2> /dev/null || true
     ip link add $VETH0 type veth peer name $VETH1
     ip link set $VETH1 netns $NETNS
 
