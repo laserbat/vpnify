@@ -64,6 +64,16 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
 
     if [ ! -e "/run/mntns/$NETNS" ]; then
         mkdir -p /run/mntns
+       
+        # Check if it's already mounted
+        mountpoint /run/mntns > /dev/null 2>&1
+
+        if [ $? == 1 ]; then
+            mount -t tmpfs tmpfs /run/mntns
+            # Fix for systemd based systems
+            mount --make-rprivate /run/mntns
+        fi
+        
         touch /run/mntns/$NETNS
 
         unshare $MOUNT_NS echo -n
