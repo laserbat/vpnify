@@ -64,7 +64,10 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
 
     if [ ! -e "/run/mntns/$NETNS" ]; then
         mkdir -p /run/mntns
-        unshare $MONUT_NS echo -n
+        touch /run/mntns/$NETNS
+
+        unshare $MOUNT_NS echo -n
+        mount --make-shared /run/mntns/$NETNS
 
         [ -e "$CUSTOM_PATH/hosts" ] && nsenter $MOUNT_NS mount --bind \
             $CUSTOM_PATH/hosts /etc/hosts
