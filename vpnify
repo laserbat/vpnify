@@ -64,7 +64,7 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     if [ ! -e "/run/mntns/$NETNS" ]; then
         mkdir -p /run/mntns
     fi
-    
+
     # Check if it's already mounted
     mountpoint /run/mntns > /dev/null 2>&1
 
