@@ -16,11 +16,12 @@ clean() {
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
     fi
 
-    PIDS=$(find -L /proc/[1-9]*/task/*/ns/mnt -samefile /run/mntns/"$NETNS" 2> /dev/null)
+    # If mount namespace was created and is unsued now - remove it
+    if [ -e "/run/mntns/$NETNS" ]; then
+        PIDS=$(find -L /proc/[1-9]*/task/*/ns/mnt -samefile /run/mntns/"$NETNS" 2> /dev/null)
 
-    if [ "$PIDS" == "" ]; then
-        # Remove mount namespace if it was created
-        if [ -e "/run/mntns/$NETNS" ]; then
+        if [ "$PIDS" == "" ]; then
+            # Remove mount namespace if it was created
             umount /run/mntns/$NETNS
             rm /run/mntns/$NETNS
         fi
@@ -162,9 +163,9 @@ done
 
 # Workaround pwd bug
 if [ "$*" == "" ]; then
-    COMMAND="cd $PWD; $SHELL"
+    COMMAND="cd $PWD; exec $SHELL"
 else
-    COMMAND="cd $PWD; $*"
+    COMMAND="cd $PWD; exec $*"
 fi
 
 # Use sudo to drop priveleges inside the namespace
