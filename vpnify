@@ -85,7 +85,7 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
         mount --make-rprivate /run/mntns
     fi
 
-    # This ddoesn't work with old mountpoint (it doesn't recognise
+    # This doesn't work with old mountpoint (it doesn't recognise
     # single file mounts)
     # mountpoint /run/mntns/$NETNS > /dev/null 2>&1
     # if [ $? != 0 ]; then
