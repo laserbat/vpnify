@@ -59,20 +59,17 @@ fi
 
 # Create mount namespace for /etc/resolv.conf and /etc/hosts if needed
 if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
-    MOUNT_NS="-m/run/mntns/$NETNS"
+    MOUNT_NS="--mount=/run/mntns/$NETNS"
 
 
     if [ ! -e "/run/mntns/$NETNS" ]; then
         mkdir -p /run/mntns
-        touch /run/mntns/$NETNS
+        unshare $MONUT_NS echo -n
 
-        unshare -m sleep 0.1 &
-        PID=$!
-
-        mount --bind /proc/$PID/task/$PID/ns/mnt /run/mntns/$NETNS
-
-        nsenter $MOUNT_NS mount --bind $CUSTOM_PATH/hosts /etc/hosts 2> /dev/null
-        nsenter $MOUNT_NS mount --bind $CUSTOM_PATH/resolv.conf /etc/resolv.conf 2> /dev/null
+        [ -e "$CUSTOM_PATH/hosts" ] && nsenter $MOUNT_NS mount --bind \
+            $CUSTOM_PATH/hosts /etc/hosts
+        [ -e "$CUSTOM_PATH/resolv.conf" ] && nsenter $MOUNT_NS mount \
+            --bind $CUSTOM_PATH/resolv.conf /etc/resolv.conf
     fi
 fi
 
@@ -95,6 +92,9 @@ else
 
         NNUM=$(($NNUM + 1))
     done
+
+    # No free subnets - probably something's wrong with iptables
+    [ $NNUM == 256 ] && exit 1
 
     # Create network namespace
     ip netns add $NETNS
