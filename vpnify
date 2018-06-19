@@ -6,6 +6,13 @@ if [ $(id -un) != 'root' ]; then
     exec sudo -E -- $0 $*
 fi
 
+# Prevent nested execution
+if [ "$VIRTUAL" == "" ]; then
+    export VIRTUAL="true"
+else
+    exit 1
+fi
+
 # Cleanup function
 clean() {
     # Find all pids using this NS
@@ -69,9 +76,10 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     fi
 
     # Check if it's already mounted
-    mountpoint /run/mntns > /dev/null 2>&1
+    EXIT_CODE=0
+    mountpoint /run/mntns > /dev/null 2>&1 || EXIT_CODE=$? && true
 
-    if [ $? != 0 ]; then
+    if [ $EXIT_CODE != 0 ]; then
         mount -t tmpfs tmpfs /run/mntns
         # Fix for systemd based systems
         mount --make-rprivate /run/mntns
@@ -100,7 +108,7 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
 
         # Kill backround process
         kill $!
-        wait $! 2>/dev/null
+        wait $! 2>/dev/null || true
 
         [ -e "$CUSTOM_PATH/hosts" ] && nsenter $MOUNT_NS mount --bind \
             $CUSTOM_PATH/hosts /etc/hosts
