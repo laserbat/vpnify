@@ -79,14 +79,8 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     if [ $? != 0 ]; then
         touch /run/mntns/$NETNS
 
-        # unshare $MOUNT_NS echo -n
-        # Doesn't work with older unshare, so we have to use a workaround
-
-        # Create a namespace
-        unshare -m sleep 0.1 &
-
-        # Bind mount it, to make it persistent
-        mount --bind /proc/$!/task/$!/ns/mnt /run/mntns/$NETNS
+        # Doesn't work with older unshare
+        unshare $MOUNT_NS echo -n
 
         mount --make-shared /run/mntns/$NETNS
 
