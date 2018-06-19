@@ -74,15 +74,30 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
         mount --make-rprivate /run/mntns
     fi
 
-    cat /run/mntns/$NETNS > /dev/null 2>&1
+    # This ddoesn't work with old mountpoint (it doesn't recognise
+    # single file mounts)
+    # mountpoint /run/mntns/$NETNS > /dev/null 2>&1
+    # if [ $? != 0 ]; then
 
-    if [ $? != 0 ]; then
+    if [ ! -e "/run/mntns/$NETNS" ]; then
         touch /run/mntns/$NETNS
 
-        # Doesn't work with older unshare
-        unshare $MOUNT_NS echo -n
+        # This doesn't work with older unshare
+        # unshare $MOUNT_NS echo -n
 
+        # Ugly workaround for old unshare versions
+        unshare -m sleep 0.1 &
+
+        # Avoids a race condition
+        sleep 0.01
+
+        # Bind mount a namespace to make it permanent
+        mount --bind /proc/$!/task/$!/ns/mnt /run/mntns/$NETNS
         mount --make-shared /run/mntns/$NETNS
+
+        # Kill backround process
+        kill $!
+        wait $! 2>/dev/null
 
         [ -e "$CUSTOM_PATH/hosts" ] && nsenter $MOUNT_NS mount --bind \
             $CUSTOM_PATH/hosts /etc/hosts
