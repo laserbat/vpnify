@@ -36,6 +36,6 @@ Programs run with vpnify2 will use different connection from programs run with v
 Custom resolv.conf and hosts
 --
 
-You can put your custom hosts and resolv.conf file to /etc/vpnify (or /etc/vpnify/<name> for a symlinked version). 
+You can put your custom hosts and resolv.conf file to /etc/vpnify/ (or /etc/vpnify/\<name\> for a symlinked version). 
 
 Also you can create folders named "pre.d" and "post.d" with custom hooks that will be executed before running the supplied command inside the namespace and after the cleanup respectively.
