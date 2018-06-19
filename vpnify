@@ -63,11 +63,12 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     
 
     if [ ! -e "/run/mntns/$NETNS" ]; then
+        mkdir -p /run/mntns
+        touch /run/mntns/$NETNS
+        
         unshare -m sleep 0.1 &
         PID=$!
         
-        mkdir -p /run/mntns
-        touch /run/mntns/$NETNS
         mount --bind /proc/$PID/task/$PID/ns/mnt /run/mntns/$NETNS
 
         nsenter $MOUNT_NS mount --bind $CUSTOM_PATH/hosts /etc/hosts 2> /dev/null
@@ -126,5 +127,12 @@ for hook in $CUSTOM_PATH/pre.d/*; do
     [ -x "$hook" ] && "$hook"
 done
 
+# Workaround pwd bug
+if [ "$*" == "" ]; then
+    COMMAND="cd $PWD; $SHELL"
+else
+    COMMAND="cd $PWD; $*"
+fi
+
 # Use sudo to drop priveleges inside the namespace
-nsenter -t $$ -w $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- $*
+nsenter $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- $SHELL -c "$COMMAND"
