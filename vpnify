@@ -45,7 +45,7 @@ EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$")
 IPTABLES=$(iptables-save)
 
 # Find default interface
-INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/')
+INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/' | cut -f1 -d' ')
 
 # Network NS argument for nsenter
 NETWORK_NS="-n/run/netns/$NETNS"
@@ -60,15 +60,15 @@ fi
 # Create mount namespace for /etc/resolv.conf and /etc/hosts if needed
 if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     MOUNT_NS="-m/run/mntns/$NETNS"
-    
+
 
     if [ ! -e "/run/mntns/$NETNS" ]; then
         mkdir -p /run/mntns
         touch /run/mntns/$NETNS
-        
+
         unshare -m sleep 0.1 &
         PID=$!
-        
+
         mount --bind /proc/$PID/task/$PID/ns/mnt /run/mntns/$NETNS
 
         nsenter $MOUNT_NS mount --bind $CUSTOM_PATH/hosts /etc/hosts 2> /dev/null
