@@ -146,7 +146,7 @@ else
 
     # Create network namespace
     ip netns add $NETNS
-    ip netns exec $NETNS ip link set dev lo up
+    ip -n $NETNS link set dev lo up
 
     # Create veth pair
     ip link delete $VETH0 2> /dev/null || true
@@ -154,13 +154,13 @@ else
     ip link set $VETH1 netns $NETNS
 
     # Setup the pair
-    ip netns exec $NETNS ip addr add 10.$MNUM.$NNUM.1/24 dev $VETH1
+    ip -n $NETNS addr add 10.$MNUM.$NNUM.1/24 dev $VETH1
     ip addr add 10.$MNUM.$NNUM.2/24 dev $VETH0
-    ip netns exec $NETNS ip link set $VETH1 up
+    ip -n $NETNS link set $VETH1 up
     ip link set $VETH0 up
 
     # Add default route inside NS
-    ip netns exec $NETNS ip route add default via 10.$MNUM.$NNUM.2 dev $VETH1
+    ip -n $NETNS route add default via 10.$MNUM.$NNUM.2 dev $VETH1
 
     # Enable routing
     echo 1 > /proc/sys/net/ipv4/ip_forward
