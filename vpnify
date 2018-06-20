@@ -23,6 +23,9 @@ clean() {
         ip netns del $NETNS
         iptables -t nat -D POSTROUTING -s 10.$MNUM.$NNUM.0/24 -o $INTERFACE\
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
+
+        iptables -D FORWARD -s 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
+        iptables -D FORWARD -d 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
     fi
 
     # If mount namespace was created and is unsued now - remove it
@@ -164,6 +167,10 @@ else
 
     # Enable routing
     echo 1 > /proc/sys/net/ipv4/ip_forward
+
+    # Allow forwarding of packages form our subnet
+    iptables -A FORWARD -s 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
+    iptables -A FORWARD -d 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
 
     # Create nat rule
     iptables -t nat -A POSTROUTING -s 10.$MNUM.$NNUM.0/24 -o $INTERFACE\
