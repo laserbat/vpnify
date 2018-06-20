@@ -21,7 +21,7 @@ clean() {
     if [ "$PIDS" == "" ]; then
         # Remove NS and drop iptables rule
         ip netns del $NETNS
-        iptables -t nat -D POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
+        iptables -t nat -D POSTROUTING -s 10.$MNUM.$NNUM.0/24 -o $INTERFACE\
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
     fi
 
@@ -59,6 +59,9 @@ INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/' | cut -f1 -d' ')
 
 # Network NS argument for nsenter
 NETWORK_NS="-n/run/netns/$NETNS"
+
+# Use 10.118.0.0/16 subnet
+MNUM=118
 
 # Customization path
 if [ $NETNS == "vpnify" ]; then
@@ -125,10 +128,11 @@ else
     VETH0="${NETNS}_veth0"
     VETH1="${NETNS}_veth1"
 
-    # Find an unused subnet starting from 10.1.0.0/24 to 10.1.255.0/24
+    # Find an unused subnet starting from 10.*.0.0/24 to 10.*.255.0/24
+    # Where * is $MNUM
     NNUM=0
     while [ $NNUM -le 255 ]; do
-        COUNT=$(grep -c "10\.1\.$NNUM\.0/24" <<< $IPTABLES; true)
+        COUNT=$(grep -c "10\.$MNUM\.$NNUM\.0/24" <<< $IPTABLES; true)
 
         if [ $COUNT == 0 ]; then
             break
@@ -150,19 +154,19 @@ else
     ip link set $VETH1 netns $NETNS
 
     # Setup the pair
-    ip netns exec $NETNS ip addr add 10.1.$NNUM.1/24 dev $VETH1
-    ip addr add 10.1.$NNUM.2/24 dev $VETH0
+    ip netns exec $NETNS ip addr add 10.$MNUM.$NNUM.1/24 dev $VETH1
+    ip addr add 10.$MNUM.$NNUM.2/24 dev $VETH0
     ip netns exec $NETNS ip link set $VETH1 up
     ip link set $VETH0 up
 
     # Add default route inside NS
-    ip netns exec $NETNS ip route add default via 10.1.$NNUM.2 dev $VETH1
+    ip netns exec $NETNS ip route add default via 10.$MNUM.$NNUM.2 dev $VETH1
 
     # Enable routing
     echo 1 > /proc/sys/net/ipv4/ip_forward
 
     # Create nat rule
-    iptables -t nat -A POSTROUTING -s 10.1.$NNUM.0/24 -o $INTERFACE\
+    iptables -t nat -A POSTROUTING -s 10.$MNUM.$NNUM.0/24 -o $INTERFACE\
         -m comment --comment "for $NETNS" -j MASQUERADE
 fi
 
