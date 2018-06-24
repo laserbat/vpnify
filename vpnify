@@ -175,12 +175,13 @@ else
     # Create nat rule
     iptables -t nat -A POSTROUTING -s 10.$MNUM.$NNUM.0/24 -o $INTERFACE\
         -m comment --comment "for $NETNS" -j MASQUERADE
+
+    # Execute custom user hooks
+    for hook in $CUSTOM_PATH/pre.d/*; do
+        [ -x "$hook" ] && "$hook"
+    done
 fi
 
-# Execute custom user hooks
-for hook in $CUSTOM_PATH/pre.d/*; do
-    [ -x "$hook" ] && "$hook"
-done
 
 # Workaround pwd bug
 if [ "$*" == "" ]; then
