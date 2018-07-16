@@ -2,8 +2,8 @@
 set -e
 
 # Escalate priveleges
-if [ $(id -un) != 'root' ]; then
-    exec sudo -E -- $0 $*
+if [ "$(id -un)" != 'root' ]; then
+    exec sudo -E -- $0 "$@"
 fi
 
 # Prevent nested execution
@@ -125,7 +125,7 @@ fi
 
 if [ "$EXISTING" != "" ]; then
     # Get the existing subnet number
-    NNUM=$(grep "for $NETNS" <<< $IPTABLES | head -n1 | cut -d' ' -f4 | cut -d'.' -f3)
+    NNUM=$(grep "for $NETNS" <<< "$IPTABLES" | head -n1 | cut -d' ' -f4 | cut -d'.' -f3)
 else
     # Names of veth interfaces
     VETH0="${NETNS}_veth0"
@@ -141,7 +141,7 @@ else
             break
         fi
 
-        NNUM=$(($NNUM + 1))
+        NNUM=$((NNUM + 1))
     done
 
     # No free subnets - probably something's wrong with iptables
@@ -182,12 +182,11 @@ else
     done
 fi
 
-
 # Workaround pwd bug
 if [ "$*" == "" ]; then
     COMMAND="cd $PWD; exec $SHELL"
 else
-    COMMAND="cd $PWD; exec $*"
+    COMMAND="cd $PWD; exec $@"
 fi
 
 # Use sudo to drop priveleges inside the namespace
