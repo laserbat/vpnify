@@ -186,7 +186,13 @@ fi
 if [ "$*" == "" ]; then
     COMMAND="cd $PWD; exec $SHELL"
 else
-    COMMAND="cd $PWD; exec $@"
+    COMMAND="cd $PWD; exec "
+
+    # Passing arguments containing a whitespace character
+    # doesn't work without this workaround
+    for arg in "$@"; do
+        COMMAND+=" \"$arg\""
+    done
 fi
 
 # Use sudo to drop priveleges inside the namespace
