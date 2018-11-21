@@ -86,7 +86,7 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     mountpoint /run/mntns > /dev/null 2>&1 || EXIT_CODE=$? && true
 
     if [ $EXIT_CODE != 0 ]; then
-        mount -t tmpfs tmpfs /run/mntns
+        mount --bind /run/mntns /run/mntns
         # Fix for systemd based systems
         mount --make-rprivate /run/mntns
     fi
