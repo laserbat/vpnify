@@ -1,7 +1,7 @@
 vpnify
 ==
 
-This tool can be used to transparently route traffic of certain programs through VPN, while keeping the rest of it routed normally.
+This tool can be used to transparently route traffic of certain programs through VPN, while keeping the rest of it routed normally. It is protocol-agnostic and can work with any VPN software.
 
 For example:
 
@@ -38,7 +38,24 @@ Custom resolv.conf and hosts
 
 You can put your custom hosts and resolv.conf file to /etc/vpnify/ (or /etc/vpnify/\<name\> for a symlinked version). 
 
-Also you can create folders named "pre.d" and "post.d" with custom hooks that will be executed before running the supplied command inside the namespace and after the cleanup respectively.
+Also you can create folders named "pre.d" and "post.d" in the same folder with custom hooks that will be executed before running the supplied command inside the namespace and after the cleanup respectively.
+
+Advanced features: Limiting clearnet access
+--
+You can use hooks to limit clearnet access by the applications run inside vpnify. First let's create a folder /etc/vpnify/pre.d/:
+
+    mkdir -p /etc/vpnify/pre.d/
+
+Now we need to create a hook that will execute firewall commands:
+
+    vim /etc/vpnify/pre.d/limit.sh
+
+Contents of this file can be something like:
+
+    iptables -I FORWARD -i $VETH0 -j DROP
+    iptables -I FORWARD -i $VETH0 -d 198.51.100.157 -j ACCEPT
+
+Where 198.51.100.157 is IP address of your VPN server. Forbids all outgoing traffic from inside the vpnify except for traffic going to 198.51.100.157.
 
 Compatibility
 --

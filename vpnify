@@ -13,6 +13,24 @@ else
     exit 1
 fi
 
+# Setup main variables:
+# Name of network namespace
+export NETNS=$(basename $0)
+
+# Find default interface
+export INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/' | cut -f1 -d' ')
+
+# Use 10.118.0.0/16 subnet
+export MNUM=118
+
+# Customization path
+if [ $NETNS == "vpnify" ]; then
+    export CUSTOM_PATH="/etc/vpnify"
+else
+    export CUSTOM_PATH="/etc/vpnify/$NETNS"
+fi
+
+
 # Cleanup function
 clean() {
     # Find all pids using this NS
@@ -48,30 +66,14 @@ clean() {
 # Run cleanup on exit
 trap 'clean;' 0
 
-# Name of network namespace
-NETNS=$(basename $0)
-
 # Check if this namespace exists already
 EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$"; true)
 
 # Save firewall rules
 IPTABLES=$(iptables-save)
 
-# Find default interface
-INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/' | cut -f1 -d' ')
-
 # Network NS argument for nsenter
 NETWORK_NS="-n/run/netns/$NETNS"
-
-# Use 10.118.0.0/16 subnet
-MNUM=118
-
-# Customization path
-if [ $NETNS == "vpnify" ]; then
-    CUSTOM_PATH="/etc/vpnify"
-else
-    CUSTOM_PATH="/etc/vpnify/$NETNS"
-fi
 
 # Create mount namespace for /etc/resolv.conf and /etc/hosts if needed
 if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
@@ -90,11 +92,6 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
         # Fix for systemd based systems
         mount --make-rprivate /run/mntns
     fi
-
-    # This doesn't work with old mountpoint (it doesn't recognise
-    # single file mounts)
-    # mountpoint /run/mntns/$NETNS > /dev/null 2>&1
-    # if [ $? != 0 ]; then
 
     if [ ! -e "/run/mntns/$NETNS" ]; then
         touch /run/mntns/$NETNS
@@ -125,11 +122,11 @@ fi
 
 if [ "$EXISTING" != "" ]; then
     # Get the existing subnet number
-    NNUM=$(grep "for $NETNS" <<< "$IPTABLES" | head -n1 | cut -d' ' -f4 | cut -d'.' -f3)
+    export NNUM=$(grep "for $NETNS" <<< "$IPTABLES" | head -n1 | cut -d' ' -f4 | cut -d'.' -f3)
 else
     # Names of veth interfaces
-    VETH0="${NETNS}_veth0"
-    VETH1="${NETNS}_veth1"
+    export VETH0="${NETNS}_veth0"
+    export VETH1="${NETNS}_veth1"
 
     # Find an unused subnet starting from 10.*.0.0/24 to 10.*.255.0/24
     # Where * is $MNUM
@@ -146,6 +143,8 @@ else
 
     # No free subnets - probably something's wrong with iptables
     [ $NNUM == 256 ] && exit 1
+    
+    export NNUM
 
     # Create network namespace
     ip netns add $NETNS
