@@ -149,7 +149,9 @@ else
 
     # Create network namespace
     ip netns add $NETNS
-    ip -n $NETNS link set dev lo up
+
+    # Not using ip -n because it's not supported in very old versions of iproute
+    ip netns exec ip netns $NETNS link set dev lo up
 
     # Create veth pair
     ip link delete $VETH0 2> /dev/null || true
@@ -157,13 +159,13 @@ else
     ip link set $VETH1 netns $NETNS
 
     # Setup the pair
-    ip -n $NETNS addr add 10.$MNUM.$NNUM.1/24 dev $VETH1
+    ip netns exec ip netns $NETNS addr add 10.$MNUM.$NNUM.1/24 dev $VETH1
     ip addr add 10.$MNUM.$NNUM.2/24 dev $VETH0
-    ip -n $NETNS link set $VETH1 up
+    ip netns exec ip netns $NETNS link set $VETH1 up
     ip link set $VETH0 up
 
     # Add default route inside NS
-    ip -n $NETNS route add default via 10.$MNUM.$NNUM.2 dev $VETH1
+    ip netns exec ip netns $NETNS route add default via 10.$MNUM.$NNUM.2 dev $VETH1
 
     # Enable routing
     echo 1 > /proc/sys/net/ipv4/ip_forward
