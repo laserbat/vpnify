@@ -59,7 +59,12 @@ Don't forget to make the hook executable!
 
     chmod +x /etc/vpnify/pre.d/limit.sh
 
-Where 198.51.100.157 is IP address of your VPN server. Forbids all outgoing traffic from inside the vpnify except for traffic going to 198.51.100.157.
+Where 198.51.100.157 is IP address of your VPN server. This forbids all outgoing traffic from inside vpnify except for traffic going to 198.51.100.157.
+
+For cleanup, put this into /etc/vpnify/post.d/limit.sh:
+
+    iptables -D FORWARD -i $VETH0 -j DROP
+    iptables -D FORWARD -i $VETH0 -d 198.51.100.157 -j ACCEPT
 
 Compatibility
 --
