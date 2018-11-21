@@ -55,6 +55,10 @@ Contents of this file can be something like:
     iptables -I FORWARD -i $VETH0 -j DROP
     iptables -I FORWARD -i $VETH0 -d 198.51.100.157 -j ACCEPT
 
+Don't forget to make the hook executable!
+
+    chmod +x /etc/vpnify/pre.d/limit.sh
+
 Where 198.51.100.157 is IP address of your VPN server. Forbids all outgoing traffic from inside the vpnify except for traffic going to 198.51.100.157.
 
 Compatibility
