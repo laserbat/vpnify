@@ -1,0 +1,4 @@
+1. Check for availability of binaries
+2. Use a workaround if nsenter is absent
+3. Figure out how to deal with background tasks
+4. Use a better way to get default gateway, iptables rules etc
