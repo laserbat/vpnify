@@ -66,7 +66,7 @@ Don't forget to make the hook executable!
 
     chmod +x /etc/vpnify/pre.d/limit.sh
 
-If your VPN configuration uses a hostname, you need to add this hostname to /etc/vpnify/hosts (which will be /etc/hosts inside the namespace).
+If your VPN configuration uses a hostname you need to add this hostname to /etc/vpnify/hosts (which will be /etc/hosts inside the namespace).
 Otherwise it will fail to resolve, since all traffic outside is blocked.
 
 Take a look at files in example-hooks/\*.d/limit.sh for a better explanation and a clean-up hook!
