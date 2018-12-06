@@ -82,7 +82,7 @@ Then, we create the configuration folders
     mkdir -p /etc/vpnify/unvpnify/pre.d/
     mkdir -p /etc/vpnify/unvpnify/post.d/
 
-And now, create a hook that does some routing magic. Look (here)[https://www.thomas-krenn.com/en/wiki/Two_Default_Gateways_on_One_System] for a deeper explanation of routing commands used in this hook.
+And now, create a hook that does some routing magic. Look [here](https://www.thomas-krenn.com/en/wiki/Two_Default_Gateways_on_One_System) for a deeper explanation of routing commands used in this hook.
 
     vim /etc/vpnify/unvpnify/pre.d/unvpn.sh
 
