@@ -17,9 +17,6 @@ fi
 # Name of network namespace
 export NETNS=$(basename $0)
 
-# Find default interface
-export INTERFACE=$(ip route | grep default | sed 's/.*dev \(.*\)/\1/' | cut -f1 -d' ')
-
 # Use 10.118.0.0/16 subnet
 export MNUM=118
 
@@ -39,18 +36,13 @@ clean() {
     if [ "$PIDS" == "" ]; then
         # Remove NS and drop iptables rule
         ip netns del $NETNS
-        iptables -t nat -D POSTROUTING -s 10.$MNUM.$NNUM.0/24 -o $INTERFACE\
+        iptables -t nat -D POSTROUTING -s 10.$MNUM.$NNUM.0/24 \
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
 
         iptables -D FORWARD -s 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
-        iptables -D FORWARD -d 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
-    fi
 
-    # If mount namespace was created and is unsued now - remove it
-    if [ -e "/run/mntns/$NETNS" ]; then
-        PIDS=$(find -L /proc/[1-9]*/task/*/ns/mnt -samefile /run/mntns/"$NETNS" 2> /dev/null)
-
-        if [ "$PIDS" == "" ]; then
+        # If mount namespace was created and is unsued now - remove it
+        if [ -e "/run/mntns/$NETNS" ]; then
             # Remove mount namespace if it was created
             umount /run/mntns/$NETNS
             rm /run/mntns/$NETNS
@@ -172,10 +164,9 @@ else
 
     # Allow forwarding of packages form our subnet
     iptables -A FORWARD -s 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
-    iptables -A FORWARD -d 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
 
     # Create nat rule
-    iptables -t nat -A POSTROUTING -s 10.$MNUM.$NNUM.0/24 -o $INTERFACE\
+    iptables -t nat -A POSTROUTING -s 10.$MNUM.$NNUM.0/24 \
         -m comment --comment "for $NETNS" -j MASQUERADE
 
     # Execute custom user hooks
