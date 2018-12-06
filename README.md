@@ -97,6 +97,17 @@ Also we need to add the 'rt2' routing table to our system:
 
 Check out example-hooks/\*.d/unvpn.sh for more information and a clean-up hook.
 
+bashrc
+---
+
+If you want your bash prompt to change, when you are using vpnify, so you can easily tell apart which consoles are runing through vpnify and which are not. Luckily it is very easy to do. Just put something like this in your bashrc:
+
+    netns() {
+        [[ -z "$NETNS" ]] || echo "[$NETNS]"
+    }
+
+    PS1="$(netns)$PS1"
+
 Compatibility
 --
 
