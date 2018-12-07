@@ -188,5 +188,8 @@ else
     done
 fi
 
+# Clear sudo credential cache
+sudo -k
+
 # Use sudo to drop priveleges inside the namespace
 nsenter $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- $SHELL -c "$COMMAND"

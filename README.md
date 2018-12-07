@@ -110,6 +110,15 @@ You might want your bash prompt to change when you are using vpnify, so you can 
 
     PS1="$(netns)$PS1"
 
+sudoers
+---
+
+If you want to use this script without having to type your password every time, you can add this line to your /etc/sudoers
+
+    %wheel ALL=(ALL) NOPASSWD:SETENV: /usr/local/bin/vpnify
+
+**Warning: this might not be secure, use with caution.**
+
 Compatibility
 --
 
