@@ -1,45 +1,52 @@
-#!/bin/bash
-set -e
+#!/bin/sh
 
 # Escalate priveleges
-if [ "$(id -un)" != 'root' ]; then
-    exec sudo -E -- $0 "$@"
+if [ $(id -u) != 0 ]; then
+    exec sudo -E -- "$0" "$@"
 fi
 
 # Prevent nested execution
-if [ "$VIRTUAL" == "" ]; then
-    export VIRTUAL="true"
-else
+if [ "$NETNS" ]; then
     exit 1
 fi
 
 # Setup main variables:
 # Name of network namespace
-export NETNS=$(basename $0)
+NETNS=$(basename $0)
+export NETNS
 
 # Use 10.118.0.0/16 subnet
-export MNUM=118
+MNUM=118
+export NNUM
 
 # Customization path
 if [ $NETNS == "vpnify" ]; then
-    export CUSTOM_PATH="/etc/vpnify"
+    CUSTOM_PATH="/etc/vpnify"
 else
-    export CUSTOM_PATH="/etc/vpnify/$NETNS"
+    CUSTOM_PATH="/etc/vpnify/$NETNS"
 fi
 
+export CUSTOM_PATH
+
+# Names of veth interfaces
+VETH0="${NETNS}_veth0"
+VETH1="${NETNS}_veth1"
+
+export VETH0
+export VETH1
 
 # Cleanup function
 clean() {
     # Find all pids using this NS
     PIDS=$(find -L /proc/[1-9]*/task/*/ns/net -samefile /run/netns/"$NETNS" 2> /dev/null)
 
-    if [ "$PIDS" == "" ]; then
+    if [ -z "$PIDS" ]; then
         # Remove NS and drop iptables rule
         ip netns del $NETNS
-        iptables -t nat -D POSTROUTING -s 10.$MNUM.$NNUM.0/24 \
+        iptables -t nat -D POSTROUTING -s "$SUBNET.0/24" \
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
 
-        iptables -D FORWARD -s 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
+        iptables -D FORWARD -s "$SUBNET.0/24" -j ACCEPT -m comment --comment "for $NETNS"
 
         # If mount namespace was created and is unsued now - remove it
         if [ -e "/run/mntns/$NETNS" ]; then
@@ -61,9 +68,6 @@ trap 'clean;' 0
 # Check if this namespace exists already
 EXISTING=$(ip netns show | cut -d' ' -f1 | grep "^$NETNS\$"; true)
 
-# Save firewall rules
-IPTABLES=$(iptables-save)
-
 # Network NS argument for nsenter
 NETWORK_NS="-n/run/netns/$NETNS"
 
@@ -75,11 +79,7 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
         mkdir -p /run/mntns
     fi
 
-    # Check if it's already mounted
-    EXIT_CODE=0
-    mountpoint /run/mntns > /dev/null 2>&1 || EXIT_CODE=$? && true
-
-    if [ $EXIT_CODE != 0 ]; then
+    if ! mountpoint -q /run/mntns; then
         mount --bind /run/mntns /run/mntns
         # Fix for systemd based systems
         mount --make-rprivate /run/mntns
@@ -103,7 +103,7 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
 
         # Kill backround process
         kill $!
-        wait $! 2>/dev/null || true
+        wait $! 2>/dev/null
 
         [ -e "$CUSTOM_PATH/hosts" ] && nsenter $MOUNT_NS mount --bind \
             $CUSTOM_PATH/hosts /etc/hosts
@@ -112,21 +112,21 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     fi
 fi
 
-if [ "$EXISTING" != "" ]; then
+if [ "$EXISTING" ]; then
     # Get the existing subnet number
-    export NNUM=$(grep "for $NETNS" <<< "$IPTABLES" | head -n1 | cut -d' ' -f4 | cut -d'.' -f3)
-else
-    # Names of veth interfaces
-    export VETH0="${NETNS}_veth0"
-    export VETH1="${NETNS}_veth1"
+    NNUM=$(iptables-save | grep "for $NETNS" | head -n1 | cut -d' ' -f4 | cut -d'.' -f3)
+    export NNUM
 
+    SUBNET="10.$MNUM.$NNUM"
+    export SUBNET
+else
     # Find an unused subnet starting from 10.*.0.0/24 to 10.*.255.0/24
     # Where * is $MNUM
     NNUM=0
     while [ $NNUM -le 255 ]; do
-        COUNT=$(grep -c "10\.$MNUM\.$NNUM\.0/24" <<< $IPTABLES; true)
+        COUNT=$(iptables-save | grep -F -c "10.$MNUM.$NNUM.0" ; true)
 
-        if [ $COUNT == 0 ]; then
+        if [ "$COUNT" = 0 ]; then
             break
         fi
 
@@ -134,9 +134,12 @@ else
     done
 
     # No free subnets - probably something's wrong with iptables
-    [ $NNUM == 256 ] && exit 1
+    [ $NNUM = 256 ] && exit 1
     
     export NNUM
+
+    SUBNET="10.$MNUM.$NNUM"
+    export SUBNET
 
     # Create network namespace
     ip netns add $NETNS
@@ -151,22 +154,22 @@ else
     ip link set $VETH1 netns $NETNS
 
     # Setup the pair
-    ip netns exec $NETNS ip addr add 10.$MNUM.$NNUM.1/24 dev $VETH1
-    ip addr add 10.$MNUM.$NNUM.2/24 dev $VETH0
+    ip netns exec $NETNS ip addr add "$SUBNET.1/24" dev $VETH1
+    ip addr add "$SUBNET.2/24" dev $VETH0
     ip netns exec $NETNS ip link set $VETH1 up
     ip link set $VETH0 up
 
     # Add default route inside NS
-    ip netns exec $NETNS ip route add default via 10.$MNUM.$NNUM.2 dev $VETH1
+    ip netns exec $NETNS ip route add default via "$SUBNET.2" dev $VETH1
 
     # Enable routing
     echo 1 > /proc/sys/net/ipv4/ip_forward
 
     # Allow forwarding of packages form our subnet
-    iptables -A FORWARD -s 10.$MNUM.$NNUM.0/24 -j ACCEPT -m comment --comment "for $NETNS"
+    iptables -A FORWARD -s "$SUBNET.0/24" -j ACCEPT -m comment --comment "for $NETNS"
 
     # Create nat rule
-    iptables -t nat -A POSTROUTING -s 10.$MNUM.$NNUM.0/24 \
+    iptables -t nat -A POSTROUTING -s "$SUBNET.0/24" \
         -m comment --comment "for $NETNS" -j MASQUERADE
 
     # Execute custom user hooks
@@ -192,4 +195,4 @@ fi
 sudo -k
 
 # Use sudo to drop priveleges inside the namespace
-nsenter $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- $SHELL -c "$COMMAND"
+nsenter $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- "$SHELL" -c "$COMMAND"
