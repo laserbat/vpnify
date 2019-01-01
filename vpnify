@@ -1,18 +1,18 @@
 #!/bin/sh
 
 # Escalate priveleges
-if [ $(id -u) != 0 ]; then
+if [ "$(id -u)" != 0 ]; then
     exec sudo -E -- "$0" "$@"
 fi
 
 # Prevent nested execution
-if [ "$NETNS" ]; then
+if [ -n "$NETNS" ]; then
     exit 1
 fi
 
 # Setup main variables:
 # Name of network namespace
-NETNS=$(basename $0)
+NETNS=$(basename "$0")
 export NETNS
 
 # Use 10.118.0.0/16 subnet
@@ -20,7 +20,7 @@ MNUM=118
 export NNUM
 
 # Customization path
-if [ $NETNS == "vpnify" ]; then
+if [ "$NETNS" = "vpnify" ]; then
     CUSTOM_PATH="/etc/vpnify"
 else
     CUSTOM_PATH="/etc/vpnify/$NETNS"
@@ -42,7 +42,7 @@ clean() {
 
     if [ -z "$PIDS" ]; then
         # Remove NS and drop iptables rule
-        ip netns del $NETNS
+        ip netns del "$NETNS"
         iptables -t nat -D POSTROUTING -s "$SUBNET.0/24" \
             -m comment --comment "for $NETNS" -j MASQUERADE 2> /dev/null
 
@@ -51,13 +51,13 @@ clean() {
         # If mount namespace was created and is unsued now - remove it
         if [ -e "/run/mntns/$NETNS" ]; then
             # Remove mount namespace if it was created
-            umount /run/mntns/$NETNS
-            rm /run/mntns/$NETNS
+            umount "/run/mntns/$NETNS"
+            rm "/run/mntns/$NETNS"
         fi
     fi
 
     # Execute custom user (post) hooks
-    for hook in $CUSTOM_PATH/post.d/*; do
+    for hook in "$CUSTOM_PATH"/post.d/*; do
         [ -x "$hook" ] && "$hook"
     done
 }
@@ -86,7 +86,7 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
     fi
 
     if [ ! -e "/run/mntns/$NETNS" ]; then
-        touch /run/mntns/$NETNS
+        touch /run/mntns/"$NETNS"
 
         # This doesn't work with older unshare
         # unshare $MOUNT_NS echo -n
@@ -98,21 +98,21 @@ if  [ -e "$CUSTOM_PATH/resolv.conf" ] || [ -e "$CUSTOM_PATH/hosts" ] ; then
         sleep 0.01
 
         # Bind mount a namespace to make it permanent
-        mount --bind /proc/$!/task/$!/ns/mnt /run/mntns/$NETNS
-        mount --make-shared /run/mntns/$NETNS
+        mount --bind /proc/$!/task/$!/ns/mnt "/run/mntns/$NETNS"
+        mount --make-shared "/run/mntns/$NETNS"
 
         # Kill backround process
         kill $!
         wait $! 2>/dev/null
 
-        [ -e "$CUSTOM_PATH/hosts" ] && nsenter $MOUNT_NS mount --bind \
-            $CUSTOM_PATH/hosts /etc/hosts
-        [ -e "$CUSTOM_PATH/resolv.conf" ] && nsenter $MOUNT_NS mount \
-            --bind $CUSTOM_PATH/resolv.conf /etc/resolv.conf
+        [ -e "$CUSTOM_PATH/hosts" ] && nsenter "$MOUNT_NS" mount --bind \
+            "$CUSTOM_PATH/hosts" /etc/hosts
+        [ -e "$CUSTOM_PATH/resolv.conf" ] && nsenter "$MOUNT_NS" mount \
+            --bind "$CUSTOM_PATH/resolv.conf" /etc/resolv.conf
     fi
 fi
 
-if [ "$EXISTING" ]; then
+if [ -n "$EXISTING" ]; then
     # Get the existing subnet number
     NNUM=$(iptables-save | grep "for $NETNS" | head -n1 | cut -d' ' -f4 | cut -d'.' -f3)
     export NNUM
@@ -142,25 +142,24 @@ else
     export SUBNET
 
     # Create network namespace
-    ip netns add $NETNS
+    ip netns add "$NETNS"
 
     # Not using 'ip -n' because it's not supported
     # by old versions of iproute2
-    ip netns exec $NETNS ip link set dev lo up
+    ip netns exec "$NETNS" ip link set dev lo up
 
     # Create veth pair
-    ip link delete $VETH0 2> /dev/null || true
-    ip link add $VETH0 type veth peer name $VETH1
-    ip link set $VETH1 netns $NETNS
+    ip link add "$VETH0" type veth peer name "$VETH1"
+    ip link set "$VETH1" netns "$NETNS"
 
     # Setup the pair
-    ip netns exec $NETNS ip addr add "$SUBNET.1/24" dev $VETH1
-    ip addr add "$SUBNET.2/24" dev $VETH0
-    ip netns exec $NETNS ip link set $VETH1 up
-    ip link set $VETH0 up
+    ip netns exec "$NETNS" ip addr add "$SUBNET.1/24" dev "$VETH1"
+    ip addr add "$SUBNET.2/24" dev "$VETH0"
+    ip netns exec "$NETNS" ip link set "$VETH1" up
+    ip link set "$VETH0" up
 
     # Add default route inside NS
-    ip netns exec $NETNS ip route add default via "$SUBNET.2" dev $VETH1
+    ip netns exec "$NETNS" ip route add default via "$SUBNET.2" dev "$VETH1"
 
     # Enable routing
     echo 1 > /proc/sys/net/ipv4/ip_forward
@@ -173,13 +172,13 @@ else
         -m comment --comment "for $NETNS" -j MASQUERADE
 
     # Execute custom user hooks
-    for hook in $CUSTOM_PATH/pre.d/*; do
+    for hook in "$CUSTOM_PATH"/pre.d/*; do
         [ -x "$hook" ] && "$hook"
     done
 fi
 
 # Workaround pwd bug
-if [ "$*" == "" ]; then
+if [ "$*" = "" ]; then
     COMMAND="cd $PWD; exec $SHELL"
 else
     COMMAND="cd $PWD; exec "
@@ -187,7 +186,7 @@ else
     # Passing arguments containing a whitespace character
     # doesn't work without this workaround
     for arg in "$@"; do
-        COMMAND+=" \"$arg\""
+        COMMAND="$COMMAND \"$arg\""
     done
 fi
 
@@ -195,4 +194,4 @@ fi
 sudo -k
 
 # Use sudo to drop priveleges inside the namespace
-nsenter $MOUNT_NS $NETWORK_NS sudo -Eu $SUDO_USER -- "$SHELL" -c "$COMMAND"
+nsenter "$MOUNT_NS" "$NETWORK_NS" sudo -Eu "$SUDO_USER" -- "$SHELL" -c "$COMMAND"
