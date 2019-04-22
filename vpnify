@@ -193,5 +193,13 @@ fi
 # Clear sudo credential cache
 sudo -k
 
+NSENTER_CMD='nsenter'
+
+# Add mount namespace for custom resolv.conf and hosts
+# Thanks to @ischoonover for noticing this bug and providing a solution
+if [ "$MOUNT_NS" ] ; then
+        NSENTER_CMD="$NSENTER_CMD $MOUNT_NS"
+fi
+
 # Use sudo to drop priveleges inside the namespace
-nsenter "$MOUNT_NS" "$NETWORK_NS" sudo -Eu "$SUDO_USER" -- "$SHELL" -c "$COMMAND"
+$NSENTER_CMD "$NETWORK_NS" sudo -Eu "$SUDO_USER" -- "$SHELL" -c "$COMMAND"
